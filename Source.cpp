@@ -9,7 +9,7 @@ TCHAR szClassName[] = TEXT("Window");
 class CDecimalTextBox
 {
 public:
-	HWND m_hWnd;
+	HWND m_hWnd = NULL;
 	HWND Create(int x, int y, int width, int height, HWND hParent)
 	{
 		m_hWnd = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", 0, WS_VISIBLE | WS_CHILD | ES_MULTILINE | ES_AUTOHSCROLL, 0, 0, 0, 0, hParent, 0, GetModuleHandle(0), 0);
@@ -35,11 +35,25 @@ public:
 							{
 								std::wstring string(lpszClipboardText);
 								string.erase(std::remove_if(string.begin(), string.end(), [](wchar_t c) { return !isdigit(c) && c != L'.' && c != L'-'; }), string.end());
-								const wchar_t *wcs = string.c_str();
-								wchar_t *stopwcs;
-								wcstod(wcs, &stopwcs);
-								string.resize(stopwcs - wcs);
+								{
+									const wchar_t *wcs = string.c_str();
+									wchar_t *stopwcs;
+									wcstod(wcs, &stopwcs);
+									string.resize(stopwcs - wcs);
+								}
 								SendMessageW(hWnd, EM_REPLACESEL, 0, (LPARAM)string.c_str());
+								DWORD dwPos = (DWORD)SendMessageW(hWnd, EM_GETSEL, NULL, NULL);
+								HLOCAL hMem = (HLOCAL)SendMessageW(hWnd, EM_GETHANDLE, 0, 0);
+								string = (LPWSTR)LocalLock(hMem);
+								LocalUnlock(hMem);
+								{
+									const wchar_t *wcs = string.c_str();
+									wchar_t *stopwcs;
+									wcstod(wcs, &stopwcs);
+									string.resize(stopwcs - wcs);
+									SetWindowTextW(hWnd, string.c_str());
+								}
+								SendMessageW(hWnd, EM_SETSEL, LOWORD(dwPos), LOWORD(dwPos));
 								GlobalUnlock(lpszClipboardText);
 							}
 						}
@@ -129,6 +143,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 		pEdit = new CDecimalTextBox;
 		pEdit->Create(10, 10, 256, 32, hWnd);
+		break;
+	case WM_SETFOCUS:
+		if (pEdit)
+		{
+			SetFocus(pEdit->m_hWnd);
+		}
 		break;
 	case WM_SIZE:
 		if (pEdit)
